@@ -20,7 +20,7 @@ class MaxwellCurveTradingStrategy:
         self.position = 0
         self.entry_price = 0
 
-    def calculate_maxwell_curve(self, prices, window=24):
+    def calculate_maxwell_curve(self, prices, window=12):
         """
         Calculate Maxwell curve components
 
