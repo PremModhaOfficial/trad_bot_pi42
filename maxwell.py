@@ -1,11 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import requests
 import scipy.stats as stats
 
 
 class MaxwellCurveTradingStrategy:
-    def __init__(self, initial_balance=1_000_000, risk_per_trade=0.02):
+    def __init__(self, initial_balance=1_000_000, risk_per_trade=1_000_000):
         """
         Initialize Maxwell Curve Trading Strategy
 
@@ -58,9 +59,28 @@ class MaxwellCurveTradingStrategy:
         Trading signal (buy, sell, or hold)
         """
         # Extract latest metrics
-        latest_zscore = metrics["zscore"]
-        latest_skewness = metrics["skewness"]
-        latest_kurtosis = metrics["kurtosis"]
+        # print(f"{metrics=}")
+        latest_zscore = (
+            float(metrics["zscore"].iloc[-1])
+            if type(metrics["zscore"]) is not int
+            and type(metrics["zscore"]) is not np.float64
+            and not np.isnan(metrics["zscore"].iloc[-1])
+            else 0
+        )
+        latest_skewness = (
+            float(metrics["skewness"].iloc[-1])
+            if type(metrics["skewness"]) is not int
+            and type(metrics["skewness"]) is not np.float64
+            and not np.isnan(metrics["skewness"].iloc[-1])
+            else 0
+        )
+        latest_kurtosis = (
+            float(metrics["kurtosis"].iloc[-1])
+            if type(metrics["kurtosis"]) is not int
+            and type(metrics["kurtosis"]) is not np.float64
+            and not np.isnan(metrics["kurtosis"].iloc[-1])
+            else 0
+        )
 
         # Define trading logic
         if latest_zscore < -2 and latest_skewness < 0 and latest_kurtosis > 3:
@@ -95,7 +115,7 @@ class MaxwellCurveTradingStrategy:
         Returns:
         Updated balance and position
         """
-        if signal == "buy" and self.position == 0:
+        if signal == "buy" and self.position == 0 and not np.isnan(current_price):
             # Enter long position
             position_size = self.calculate_position_size(current_price)
             self.position = position_size
@@ -103,7 +123,7 @@ class MaxwellCurveTradingStrategy:
             self.current_balance -= position_size * current_price
             return "Entered long position"
 
-        elif signal == "sell" and self.position > 0:
+        elif signal == "sell" and self.position > 0 and not np.isnan(current_price):
             # Exit long position
             exit_value = self.position * current_price
             profit_loss = exit_value - (self.position * self.entry_price)
@@ -137,7 +157,10 @@ class MaxwellCurveTradingStrategy:
             current_price = price_data.iloc[i]
 
             # Extract metrics for current point
-            current_metrics = {key: metric.iloc[i] for key, metric in metrics.items()}
+            current_metrics = {
+                key: metric.iloc[i] if not np.isnan(metric.iloc[i]) else 0
+                for key, metric in metrics.items()
+            }
 
             # Generate signal
             signal = self.generate_trading_signal(current_metrics, current_price)
@@ -167,11 +190,38 @@ class MaxwellCurveTradingStrategy:
         }
 
 
+def current_price(symbol, interval) -> pd.Series:
+
+    response = requests.post(
+        "https://api.pi42.com/v1/market/klines",
+        json={
+            "pair": symbol,
+            "interval": interval,
+            "limit": 1000,
+            # "startTime": int(time.time()) - (86400 * days_back),
+            # "endTime": int(time.time()) - (86400 * (days_back - 1)),
+        },
+        headers={"Content-Type": "application/json"},
+    )
+    # print(f"{json.dumps(response.json(), indent=4)}")
+    # print(f"{len(response.json())}")
+    print(f"\n\n{response.status_code=}\n{len(response.json())=}\n\n")
+    response.raise_for_status()
+    data = response.json()
+
+    # Calculate mean and standard deviation
+    df = pd.DataFrame(data)
+    close_prices = df["close"].astype(float)
+    # close_prices.index = pd.to_datetime(df["timestamp"], unit="s")
+    return close_prices
+
+
 # Example usage
 def main():
-    # Simulated price data (replace with your actual data fetching method)
-    dates = pd.date_range(start="2023-01-01", end="2024-01-01", freq="D")
-    prices = pd.Series(np.random.normal(100, 10, len(dates)), index=dates)
+    prices = current_price("BTCINR", "1h")
+    if prices is None or prices.empty:
+        print("No price data available.")
+        return
 
     strategy = MaxwellCurveTradingStrategy()
     results = strategy.backtest(prices)
@@ -182,8 +232,16 @@ def main():
 
     # Optional: Visualize trade log
     plt.figure(figsize=(12, 6))
-    plt.plot(prices.index, data=prices.values, label="Price")
+    plt.plot(prices.index, prices.values, label="Price")
     plt.title("Maxwell Curve Trading Strategy Backtest")
+    plt.plot(
+        results["trade_log"]["date"], results["trade_log"]["balance"], label="Balance"
+    )
+    plt.legend()
+    plt.plot(
+        results["trade_log"]["date"], results["trade_log"]["balance"], label="Balance"
+    )
+    plt.legend()
     plt.xlabel("Date")
     plt.ylabel("Price")
     plt.legend()

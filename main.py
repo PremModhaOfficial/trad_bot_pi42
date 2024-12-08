@@ -88,10 +88,10 @@ class TradBot:
 # Set API credentials and parameters
 base_url = "https://api.pi42.com"
 symbol = "BTCINR"
-interval = "4h"
+default_interval = "1h"
 
 
-def main(days_back: int = 2):
+def main(interval=default_interval):
     # Fetch historical data
     response = requests.post(
         f"{base_url}/v1/market/klines",
@@ -171,4 +171,4 @@ def main(days_back: int = 2):
 
 
 if __name__ == "__main__":
-    main()
+    main("1h")
