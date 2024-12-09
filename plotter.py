@@ -23,14 +23,43 @@ def plot(csv_path: str):
     df = df[(df["close"] > 0) & (df["close"] < df["close"].quantile(0.99))]
 
     # Plot the data
-    buy_signals = df[df["signal"] == "buy"]
-    sell_signals = df[df["signal"] == "sell"]
     plt.figure(figsize=(14, 10))
 
     plt.plot(df["date"], df["close"], label="Close Price", color="blue")
-    plt.plot(df["date"], df["zscore"], label="Z-Score", color="orange")
-    plt.plot(df["date"], df["skewness"], label="Skewness", color="green")
-    plt.plot(df["date"], df["kurtosis"], label="Kurtosis", color="red")
+
+    # Amplify the kurtosis
+    kurtosis_scaled = df["kurtosis"] * 10
+    plt.plot(
+        df["date"],
+        kurtosis_scaled,
+        label="Kurtosis (scaled)",
+        color="red",
+        linestyle="--",
+    )
+
+    # Amplify the skewness
+    skewness_scaled = df["skewness"] * 10
+    plt.plot(
+        df["date"],
+        skewness_scaled,
+        label="Skewness (scaled)",
+        color="green",
+        linestyle=":",
+    )
+
+    # Amplify the z-score
+    zscore_scaled = df["zscore"] * 10
+    plt.plot(
+        df["date"],
+        zscore_scaled,
+        label="Z-Score (scaled)",
+        color="orange",
+        linestyle="-.",
+    )
+
+    # Plot the buy and sell signals
+    buy_signals = df[df["signal"] == "buy"]
+    sell_signals = df[df["signal"] == "sell"]
     plt.scatter(
         buy_signals["date"],
         buy_signals["close"],
@@ -47,7 +76,27 @@ def plot(csv_path: str):
         label="Sell Signal",
         alpha=1,
     )
-    plt.title("Trading Strategy Metrics and Signals")
+
+    # Add annotations to highlight the influence of metrics on signals
+    for i, signal in buy_signals.iterrows():
+        plt.annotate(
+            f"Kurtosis: {signal['kurtosis']:.2f}\nSkewness: {signal['skewness']:.2f}\nZ-Score: {signal['zscore']:.2f}",
+            (signal["date"], signal["close"]),
+            textcoords="offset points",
+            xytext=(0, 10),
+            ha="center",
+        )
+
+    for i, signal in sell_signals.iterrows():
+        plt.annotate(
+            f"Kurtosis: {signal['kurtosis']:.2f}\nSkewness: {signal['skewness']:.2f}\nZ-Score: {signal['zscore']:.2f}",
+            (signal["date"], signal["close"]),
+            textcoords="offset points",
+            xytext=(0, -10),
+            ha="center",
+        )
+
+    plt.title("Close Price and Trading Signals with Metrics")
     plt.xlabel("Date")
     plt.ylabel("Metrics")
     plt.legend()

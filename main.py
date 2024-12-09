@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import os
 import time
 from os import getenv
 
@@ -200,6 +201,11 @@ def main(interval=default_interval):
     )
 
 
+def delete_file(filename):
+    os.remove(filename)
+
+
 if __name__ == "__main__":
+    delete_file("trading_signals.csv")
     main("1h")
     plotter.plot("./trading_signals.csv")

@@ -9,3 +9,20 @@ source .venv/bin/activate
 pip install -r requirements.txt
 #+end_src
 
+   
+** Run
+
+#+begin_src bash
+python3 trad_bot.py
+#+end_src
+
+** What it does
+
+- It connects to the PI42 API
+
+
+** TODO
+
+- [ ] Add more trading strategies
+- [ ] Add more trading pairs
+- [ ] Add more trading exchanges
