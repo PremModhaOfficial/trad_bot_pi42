@@ -6,8 +6,10 @@ from os import getenv
 
 import pandas as pd
 import requests
+import scipy.stats as stats
 from dotenv import load_dotenv
 
+import plotter
 from enums import OrderParams
 
 
@@ -113,11 +115,23 @@ def main(interval=default_interval):
     # Calculate mean and standard deviation
     df = pd.DataFrame(data)
     df["close"] = pd.to_numeric(df["close"])
-    mean = df["close"].rolling(window=24).mean()
-    std = df["close"].rolling(window=24).std()
+    mean = df["close"].rolling(window=24, min_periods=1).mean()
+    std = df["close"].rolling(window=24, min_periods=1).std()
+
+    print(f" ###########\n\n\n {df.head()=} ###########\n\n\n ")
+
+    # Calculate additional metrics
+    df["returns"] = df["close"].pct_change()
+    df["zscore"] = (df["close"] - mean) / std
+    df["skewness"] = (
+        df["returns"].rolling(window=24).apply(lambda x: stats.skew(x), raw=False)
+    )
+    df["kurtosis"] = (
+        df["returns"].rolling(window=24).apply(lambda x: stats.kurtosis(x), raw=False)
+    )
 
     # Define mean reversion strategy
-    def mean_reversion_strategy(close, mean, std):
+    def mean_reversion_strategy(close, mean, std, zscore, skewness, kurtosis, date):
         sign = "hold"
         if close < mean - std:
             sign = "buy"
@@ -129,13 +143,21 @@ def main(interval=default_interval):
         with open("trading_signals.csv", "a+") as f:
             f.seek(0)
             if f.read(1) == "":
-                f.write(f"{'Close'},{'Mean'},{'Std Dev'},{'Signal'}\n")
-            f.write(f"{close},{mean},{std},{sign}\n")
+                f.write(
+                    f"{'date'},{'close'},{'mean'},{'stdDev'},{'zscore'},{'skewness'},{'kurtosis'},{'signal'}\n"
+                )
+            f.write(
+                f"{date},{close},{mean},{std},{zscore},{skewness},{kurtosis},{sign}\n"
+            )
         with open("trading_signals_readable.csv", "a+") as f:
             f.seek(0)
             if f.read(1) == "":
-                f.write(f"{'Close':<13},{'Mean':<13},{'Std Dev':<13},{'Signal'}\n")
-            f.write(f"{close:<13.4f},{mean:<13.4f},{std:<13.4f},{sign:}\n")
+                f.write(
+                    f"{"Date"},{'Close':<13},{'Mean':<13},{'Std Dev':<13},{'Z-Score':<13},{'Skewness':<13},{'Kurtosis':<13},{'Signal'}\n"
+                )
+            f.write(
+                f"{date:<13},{close:<13.4f},{mean:<13.4f},{std:<13.4f},{zscore:<13.4f},{skewness:<13.4f},{kurtosis:<13.4f},{sign:}\n"
+            )
 
         return sign
 
@@ -146,7 +168,15 @@ def main(interval=default_interval):
 
     for i in range(len(df)):
         close = df["close"].iloc[i]
-        signal = mean_reversion_strategy(close, mean.iloc[i], std.iloc[i])
+        zscore = df["zscore"].iloc[i]
+        skewness = df["skewness"].iloc[i]
+        kurtosis = df["kurtosis"].iloc[i]
+        date = pd.to_datetime(df["endTime"].iloc[i], unit="ms").strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        signal = mean_reversion_strategy(
+            close, mean.iloc[i], std.iloc[i], zscore, skewness, kurtosis, date
+        )
         if signal == "buy" and position == 0:
             position = balance / close
             entry_price = close
@@ -172,3 +202,4 @@ def main(interval=default_interval):
 
 if __name__ == "__main__":
     main("1h")
+    plotter.plot("./trading_signals.csv")

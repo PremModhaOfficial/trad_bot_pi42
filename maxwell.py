@@ -1,3 +1,5 @@
+from os import pread
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -6,7 +8,7 @@ import scipy.stats as stats
 
 
 class MaxwellCurveTradingStrategy:
-    def __init__(self, initial_balance=1_000_000, risk_per_trade=1_000_000):
+    def __init__(self, initial_balance=1_000_000, risk_per_trade=1):
         """
         Initialize Maxwell Curve Trading Strategy
 
@@ -21,6 +23,7 @@ class MaxwellCurveTradingStrategy:
         self.entry_price = 0
 
     def calculate_maxwell_curve(self, prices, window=12):
+        print(prices)
         """
         Calculate Maxwell curve components
 
@@ -34,20 +37,39 @@ class MaxwellCurveTradingStrategy:
         # Calculate key statistical measures
         returns = np.log(prices).diff()
 
+        # Ensure price data is of type float
+        prices = prices.astype(float)
+
         maxwell_metrics = {
-            "mean": prices.rolling(window=window).mean(),
-            "std_dev": prices.rolling(window=window).std(),
-            "skewness": returns.rolling(window=window).apply(lambda x: stats.skew(x)),
-            "kurtosis": returns.rolling(window=window).apply(
-                lambda x: stats.kurtosis(x)
+            "mean": prices.rolling(
+                window=window, min_periods=1
+            ).mean(),  # Adjust min_periods
+            "std_dev": prices.rolling(
+                window=window, min_periods=1
+            ).std(),  # Adjust min_periods
+            "skewness": returns.rolling(window=window, min_periods=1).apply(
+                lambda x: (
+                    stats.skew(x, nan_policy="omit") if len(x.dropna()) >= 3 else np.nan
+                ),
+                raw=False,  # Added nan_policy
             ),
-            "zscore": (prices - prices.rolling(window=window).mean())
-            / prices.rolling(window=window).std(),
+            "kurtosis": returns.rolling(window=window, min_periods=1).apply(
+                lambda x: (
+                    stats.kurtosis(x, nan_policy="omit")
+                    if len(x.dropna()) >= 4
+                    else np.nan
+                ),
+                raw=False,  # Added nan_policy
+            ),
+            "zscore": (prices - prices.rolling(window=window, min_periods=1).mean())
+            / prices.rolling(window=window, min_periods=1).std(),  # Adjust min_periods
         }
 
-        return maxwell_metrics
+        print(f"\n{maxwell_metrics['mean']=}")
+        maxwell_df = pd.DataFrame(maxwell_metrics).dropna()
+        return maxwell_df
 
-    def generate_trading_signal(self, metrics, current_price):
+    def generate_trading_signal(self, metrics):
         """
         Generate trading signal based on Maxwell curve metrics
 
@@ -59,7 +81,6 @@ class MaxwellCurveTradingStrategy:
         Trading signal (buy, sell, or hold)
         """
         # Extract latest metrics
-        # print(f"{metrics=}")
         latest_zscore = (
             float(metrics["zscore"].iloc[-1])
             if type(metrics["zscore"]) is not int
@@ -84,10 +105,19 @@ class MaxwellCurveTradingStrategy:
 
         # Define trading logic
         if latest_zscore < -2 and latest_skewness < 0 and latest_kurtosis > 3:
+            print(
+                f"Buy signal: zscore={latest_zscore}, skewness={latest_skewness}, kurtosis={latest_kurtosis}"
+            )
             return "buy"
         elif latest_zscore > 2 and latest_skewness > 0 and latest_kurtosis > 3:
+            print(
+                f"Sell signal: zscore={latest_zscore}, skewness={latest_skewness}, kurtosis={latest_kurtosis}"
+            )
             return "sell"
         else:
+            # print(
+            #     f"Hold signal: zscore={latest_zscore}, skewness={latest_skewness}, kurtosis={latest_kurtosis}"
+            # )
             return "hold"
 
     def calculate_position_size(self, current_price):
@@ -100,7 +130,7 @@ class MaxwellCurveTradingStrategy:
         Returns:
         Position size in asset units
         """
-        risk_amount = self.current_balance * self.risk_per_trade
+        risk_amount = self.risk_per_trade
         position_size = risk_amount / current_price
         return position_size
 
@@ -158,12 +188,17 @@ class MaxwellCurveTradingStrategy:
 
             # Extract metrics for current point
             current_metrics = {
-                key: metric.iloc[i] if not np.isnan(metric.iloc[i]) else 0
+                key: (
+                    metric.iloc[i].astype(float)
+                    if metric.iloc[i] and not np.isnan(metric.iloc[i])
+                    else 0
+                )
                 for key, metric in metrics.items()
             }
+            # print(f"Current metrics at index {i}: {current_metrics}")
 
             # Generate signal
-            signal = self.generate_trading_signal(current_metrics, current_price)
+            signal = self.generate_trading_signal(current_metrics)
 
             # Execute trade
             trade_result = self.execute_trade(signal, current_price)
@@ -237,11 +272,6 @@ def main():
     plt.plot(
         results["trade_log"]["date"], results["trade_log"]["balance"], label="Balance"
     )
-    plt.legend()
-    plt.plot(
-        results["trade_log"]["date"], results["trade_log"]["balance"], label="Balance"
-    )
-    plt.legend()
     plt.xlabel("Date")
     plt.ylabel("Price")
     plt.legend()
