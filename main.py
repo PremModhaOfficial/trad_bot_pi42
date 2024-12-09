@@ -102,8 +102,6 @@ def main(interval=default_interval):
             "pair": symbol,
             "interval": interval,
             "limit": 1000,
-            # "startTime": int(time.time()) - (86400 * days_back),
-            # "endTime": int(time.time()) - (86400 * (days_back - 1)),
         },
         headers={"Content-Type": "application/json"},
     )
