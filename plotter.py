@@ -6,7 +6,7 @@ def plot(csv_path: str):
     df = pd.read_csv(csv_path)
 
     df = df[24:]
-    print(f" ###########\n\n\n {df.head()=} ###########\n\n\n ")
+    # print(f" ###########\n\n\n {df.head()=} ###########\n\n\n ")
     # Convert date column to datetime
     if "date" in df.columns:
         df["date"] = pd.to_datetime(df["date"])
@@ -78,23 +78,23 @@ def plot(csv_path: str):
     )
 
     # Add annotations to highlight the influence of metrics on signals
-    for i, signal in buy_signals.iterrows():
-        plt.annotate(
-            f"Kurtosis: {signal['kurtosis']:.2f}\nSkewness: {signal['skewness']:.2f}\nZ-Score: {signal['zscore']:.2f}",
-            (signal["date"], signal["close"]),
-            textcoords="offset points",
-            xytext=(0, 10),
-            ha="center",
-        )
+    # for i, signal in buy_signals.iterrows():
+    #     plt.annotate(
+    #         f"Kurtosis: {signal['kurtosis']:.2f}\nSkewness: {signal['skewness']:.2f}\nZ-Score: {signal['zscore']:.2f}",
+    #         (signal["date"], signal["close"]),
+    #         textcoords="offset points",
+    #         xytext=(0, 10),
+    #         ha="center",
+    #     )
 
-    for i, signal in sell_signals.iterrows():
-        plt.annotate(
-            f"Kurtosis: {signal['kurtosis']:.2f}\nSkewness: {signal['skewness']:.2f}\nZ-Score: {signal['zscore']:.2f}",
-            (signal["date"], signal["close"]),
-            textcoords="offset points",
-            xytext=(0, -10),
-            ha="center",
-        )
+    # for i, signal in sell_signals.iterrows():
+    #     plt.annotate(
+    #         f"Kurtosis: {signal['kurtosis']:.2f}\nSkewness: {signal['skewness']:.2f}\nZ-Score: {signal['zscore']:.2f}",
+    #         (signal["date"], signal["close"]),
+    #         textcoords="offset points",
+    #         xytext=(0, -10),
+    #         ha="center",
+    #     )
 
     plt.title("Close Price and Trading Signals with Metrics")
     plt.xlabel("Date")

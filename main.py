@@ -22,12 +22,13 @@ def generate_signature(api_secret, data_to_sign):
 
 class TradBot:
 
-    def __init__(self):
+    def __init__(self, restrict_sell=False):
         load_dotenv()
         self.base_url = "https://fapi.pi42.com"
         self.api_key = getenv("PI42_API_KEY")
         self.secret_key = getenv("PI42_API_SECRET")
         self.available_balance = self.get_user_balance()
+        self.restrict_sell = restrict_sell
 
     def get_user_balance(self):
         timestamp = str(int(time.time() * 1000))
@@ -68,19 +69,6 @@ class TradBot:
         return user_balance
 
     def place_order(self, order_params: OrderParams):
-        """
-        quantity 	number 	No 	The amount of the asset to be ordered. Specify the desired quantity.
-        price 	number 	Conditional 	The price at which to place the LIMIT/STOP_LIMIT order. Must be specified if orderType is "LIMIT" or "STOP_LIMIT".
-        placeType 	string 	Yes 	Fixed value "ORDER_FORM". Indicates the type of order placement.
-        side 	string 	Yes 	The side of the order, which is "BUY" in this case.
-        symbol 	string 	Yes 	The trading pair symbol, for example, "GRTINR".
-        reduceOnly 	boolean 	No 	Indicates whether the order should only reduce the position. Default is false.
-        marginAsset 	string 	Yes 	The asset used for margin, such as "INR".
-        orderType 	string 	Yes 	The type of the order. It can be MARKET, LIMIT, STOP_MARKET or STOP_LIMIT.
-        takeProfitPrice 	number 	No 	Price at which take profit order should be executed.
-        stopLossPrice 	number 	No 	Price at which stop loss order should be executed.
-        stopPrice 	number 	No 	Compulsory for STOP_MARKET and STOP_LIMIT orders
-        """
         pass
 
 
@@ -94,14 +82,46 @@ symbol = "BTCINR"
 default_interval = "1h"
 
 
-def main(interval=default_interval):
+# Define mean reversion strategy
+def mean_reversion_strategy(close, mean, std, zscore, skewness, kurtosis, date, risk):
+    sign = "hold"
+    if close < mean - std:
+        sign = "buy"
+    elif close > mean + std and risk is None:
+        sign = "sell"
+    else:
+        sign = "hold"
+
+    with open("trading_signals.csv", "a+") as f:
+        f.seek(0)
+        if f.read(1) == "":
+            f.write(
+                f"{'date'},{'close'},{'mean'},{'stdDev'},{'zscore'},{'skewness'},{'kurtosis'},{'signal'}\n"
+            )
+        f.write(f"{date},{close},{mean},{std},{zscore},{skewness},{kurtosis},{sign}\n")
+    with open("trading_signals_readable.csv", "a+") as f:
+        f.seek(0)
+        if f.read(1) == "":
+            f.write(
+                f"{"Date"},{'Close':<13},{'Mean':<13},{'Std Dev':<13},{'Z-Score':<13},{'Skewness':<13},{'Kurtosis':<13},{'Signal'}\n"
+            )
+        f.write(
+            f"{date:<13},{close:<13.4f},{mean:<13.4f},{std:<13.4f},{zscore:<13.4f},{skewness:<13.4f},{kurtosis:<13.4f},{sign:}\n"
+        )
+
+    return sign
+
+
+def run_strat(interval=default_interval, risk=None):
     # Fetch historical data
     response = requests.post(
         f"{base_url}/v1/market/klines",
         json={
             "pair": symbol,
             "interval": interval,
-            "limit": 1000,
+            "limit": 6000,
+            # "start_time": 1643723400000,  # January 1, 2022, 00:00:00 UTC,
+            # "end_time": 1675259400000,  # January 1, 2023, 00:00:00 UTC
         },
         headers={"Content-Type": "application/json"},
     )
@@ -117,7 +137,7 @@ def main(interval=default_interval):
     mean = df["close"].rolling(window=24, min_periods=1).mean()
     std = df["close"].rolling(window=24, min_periods=1).std()
 
-    print(f" ###########\n\n\n {df.head()=} ###########\n\n\n ")
+    # print(f" ###########\n\n\n {df.head()=} ###########\n\n\n ")
 
     # Calculate additional metrics
     df["returns"] = df["close"].pct_change()
@@ -128,37 +148,6 @@ def main(interval=default_interval):
     df["kurtosis"] = (
         df["returns"].rolling(window=24).apply(lambda x: stats.kurtosis(x), raw=False)
     )
-
-    # Define mean reversion strategy
-    def mean_reversion_strategy(close, mean, std, zscore, skewness, kurtosis, date):
-        sign = "hold"
-        if close < mean - std:
-            sign = "buy"
-        elif close > mean + std:
-            sign = "sell"
-        else:
-            sign = "hold"
-
-        with open("trading_signals.csv", "a+") as f:
-            f.seek(0)
-            if f.read(1) == "":
-                f.write(
-                    f"{'date'},{'close'},{'mean'},{'stdDev'},{'zscore'},{'skewness'},{'kurtosis'},{'signal'}\n"
-                )
-            f.write(
-                f"{date},{close},{mean},{std},{zscore},{skewness},{kurtosis},{sign}\n"
-            )
-        with open("trading_signals_readable.csv", "a+") as f:
-            f.seek(0)
-            if f.read(1) == "":
-                f.write(
-                    f"{"Date"},{'Close':<13},{'Mean':<13},{'Std Dev':<13},{'Z-Score':<13},{'Skewness':<13},{'Kurtosis':<13},{'Signal'}\n"
-                )
-            f.write(
-                f"{date:<13},{close:<13.4f},{mean:<13.4f},{std:<13.4f},{zscore:<13.4f},{skewness:<13.4f},{kurtosis:<13.4f},{sign:}\n"
-            )
-
-        return sign
 
     initial_balance = 10_00_000  # Example initial balance in INR
     balance = initial_balance
@@ -174,12 +163,19 @@ def main(interval=default_interval):
             "%Y-%m-%d %H:%M:%S"
         )
         signal = mean_reversion_strategy(
-            close, mean.iloc[i], std.iloc[i], zscore, skewness, kurtosis, date
+            close, mean.iloc[i], std.iloc[i], zscore, skewness, kurtosis, date, risk
         )
-        if signal == "buy" and position == 0:
-            position = balance / close
+        if signal == "buy":
+            if risk is not None:
+                print(f"{position=}")
+                if balance - risk < 0:
+                    break
+                position += float(risk / close)
+            elif risk is None:
+                position = float(balance / close)
+
             entry_price = close
-            balance = 0
+            balance = 0 if risk is None else balance - risk
             # print("Buy signal")
         elif signal == "sell" and position > 0:
             balance = position * close
@@ -187,23 +183,25 @@ def main(interval=default_interval):
             # print("Sell signal")
 
     # Calculate final profit/loss
-    final_balance = balance if position == 0 else position * df["close"].iloc[-1]
+    final_balance = balance + position * df["close"].iloc[-1]
     profit_loss = final_balance - initial_balance
     print(
         f"""
     Total Profit/Loss: {profit_loss} INR.
     Meaning {profit_loss/initial_balance*100:.4f}%
             balance={float(balance)}
-            {position=}
+            {float(position)=}
         """
     )
 
 
 def delete_file(filename):
-    os.remove(filename)
+    try:
+        os.remove(filename)
+    except FileNotFoundError:
+        pass
 
 
-if __name__ == "__main__":
-    delete_file("trading_signals.csv")
-    main("1h")
-    plotter.plot("./trading_signals.csv")
+delete_file("trading_signals.csv")
+run_strat("1h", risk=5000)
+plotter.plot("./trading_signals.csv")
