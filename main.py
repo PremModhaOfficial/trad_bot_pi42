@@ -143,14 +143,15 @@ def run_strat(interval=default_interval, risk=None):
     df["returns"] = df["close"].pct_change()
     df["zscore"] = (df["close"] - mean) / std
     df["skewness"] = (
-        df["returns"].rolling(window=24).apply(lambda x: stats.skew(x), raw=False)
+        df["returns"].rolling(window=20).apply(lambda x: stats.skew(x), raw=False)
     )
     df["kurtosis"] = (
-        df["returns"].rolling(window=24).apply(lambda x: stats.kurtosis(x), raw=False)
+        df["returns"].rolling(window=20).apply(lambda x: stats.kurtosis(x), raw=False)
     )
 
     initial_balance = 10_00_000  # Example initial balance in INR
     balance = initial_balance
+    initial_price = df["close"].iloc[0]
     position = 0
     entry_price = 0
 
@@ -175,7 +176,7 @@ def run_strat(interval=default_interval, risk=None):
                 position = float(balance / close)
 
             entry_price = close
-            balance = 0 if risk is None else balance - risk
+            balance = (0) if risk is None else (balance - risk)
             # print("Buy signal")
         elif signal == "sell" and position > 0:
             balance = position * close
@@ -189,8 +190,9 @@ def run_strat(interval=default_interval, risk=None):
         f"""
     Total Profit/Loss: {profit_loss} INR.
     Meaning {profit_loss/initial_balance*100:.4f}%
-            balance={float(balance)}
-            {float(position)=}
+    alpha={profit_loss / (df["close"].iloc[-1] - initial_price) * 100}%
+    balance={float(balance)}
+    {float(position)=}
         """
     )
 
@@ -203,5 +205,5 @@ def delete_file(filename):
 
 
 delete_file("trading_signals.csv")
-run_strat("1h", risk=5000)
+run_strat("1h", risk=500)
 plotter.plot("./trading_signals.csv")

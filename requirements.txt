@@ -1,7 +1,4 @@
-
-requests
+# Example dependencies
+ccxt
 pandas
-python-dotenv
 numpy
-matplotlib
-scipy
