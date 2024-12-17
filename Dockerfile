@@ -11,8 +11,10 @@ COPY . /app
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Set environment variables (optional, you can set them during runtime)
-# ENV API_KEY your_api_key
-# ENV SECRET_KEY your_secret_key
+ENV API_KEY 74b2ebd6f711129dff3c39688dba89da
+ENV SECRET_KEY 3353f4d802a8e3b8dd9d15af2704be13
+ENV PI42_API_KEY 74b2ebd6f711129dff3c39688dba89da
+ENV PI42_API_SECRET 3353f4d802a8e3b8dd9d15af2704be13
 
 # Run the bot
-CMD ["python", "run.py"]
+CMD ["python3", "run.py"]
