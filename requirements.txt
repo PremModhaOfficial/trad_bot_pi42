@@ -2,3 +2,8 @@
 ccxt
 pandas
 numpy
+python-socketio
+asyncio
+aiohttp
+icecream
+requests

@@ -1,4 +1,5 @@
 from enum import Enum
+from json import dumps
 
 
 class PlaceType(Enum):
@@ -23,7 +24,7 @@ class OrderParams:
         quantity: float,
         price: float = 0,
         placeType: str = "ORDER_FORM",
-        side: str = "BUY",
+        side: Side = Side.BUY,
         symbol: str = "",
         reduceOnly: bool = False,
         marginAsset: str = "",
@@ -45,7 +46,6 @@ class OrderParams:
         self.stopPrice = stopPrice
 
     def __repr__(self):
-        from json import dumps
 
         return dumps(
             {

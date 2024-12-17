@@ -9,9 +9,10 @@ import pandas as pd
 import requests
 import scipy.stats as stats
 from dotenv import load_dotenv
+from icecream import ic
 
-import plotter
 from enums import OrderParams
+from fetcher import fetch
 
 
 def generate_signature(api_secret, data_to_sign):
@@ -83,11 +84,11 @@ default_interval = "1h"
 
 
 # Define mean reversion strategy
-def mean_reversion_strategy(close, mean, std, zscore, skewness, kurtosis, date, risk):
+def mean_reversion_strategy(Close, mean, std, zscore, skewness, kurtosis, date, risk):
     sign = "hold"
-    if close < mean - std:
+    if Close < mean - std:
         sign = "buy"
-    elif close > mean + std and risk is None:
+    elif Close > mean + std and risk is None:
         sign = "sell"
     else:
         sign = "hold"
@@ -96,9 +97,9 @@ def mean_reversion_strategy(close, mean, std, zscore, skewness, kurtosis, date, 
         f.seek(0)
         if f.read(1) == "":
             f.write(
-                f"{'date'},{'close'},{'mean'},{'stdDev'},{'zscore'},{'skewness'},{'kurtosis'},{'signal'}\n"
+                f"{'date'},{'Close'},{'mean'},{'stdDev'},{'zscore'},{'skewness'},{'kurtosis'},{'signal'}\n"
             )
-        f.write(f"{date},{close},{mean},{std},{zscore},{skewness},{kurtosis},{sign}\n")
+        f.write(f"{date},{Close},{mean},{std},{zscore},{skewness},{kurtosis},{sign}\n")
     with open("trading_signals_readable.csv", "a+") as f:
         f.seek(0)
         if f.read(1) == "":
@@ -106,7 +107,7 @@ def mean_reversion_strategy(close, mean, std, zscore, skewness, kurtosis, date, 
                 f"{"Date"},{'Close':<13},{'Mean':<13},{'Std Dev':<13},{'Z-Score':<13},{'Skewness':<13},{'Kurtosis':<13},{'Signal'}\n"
             )
         f.write(
-            f"{date:<13},{close:<13.4f},{mean:<13.4f},{std:<13.4f},{zscore:<13.4f},{skewness:<13.4f},{kurtosis:<13.4f},{sign:}\n"
+            f"{date:<13},{Close:<13.4f},{mean:<13.4f},{std:<13.4f},{zscore:<13.4f},{skewness:<13.4f},{kurtosis:<13.4f},{sign:}\n"
         )
 
     return sign
@@ -130,18 +131,20 @@ def run_strat(interval=default_interval, risk=None):
     print(f"\n\n{response.status_code=}\n{len(response.json())=}\n\n")
     response.raise_for_status()
     data = response.json()
+    data = pd.read_csv("./btc.csv")
 
+    ic(data)
     # Calculate mean and standard deviation
     df = pd.DataFrame(data)
-    df["close"] = pd.to_numeric(df["close"])
-    mean = df["close"].rolling(window=24, min_periods=1).mean()
-    std = df["close"].rolling(window=24, min_periods=1).std()
+    df["Close"] = pd.to_numeric(df["Close"])
+    mean = df["Close"].rolling(window=24, min_periods=1).mean()
+    std = df["Close"].rolling(window=24, min_periods=1).std()
 
     # print(f" ###########\n\n\n {df.head()=} ###########\n\n\n ")
 
     # Calculate additional metrics
-    df["returns"] = df["close"].pct_change()
-    df["zscore"] = (df["close"] - mean) / std
+    df["returns"] = df["Close"].pct_change()
+    df["zscore"] = (df["Close"] - mean) / std
     df["skewness"] = (
         df["returns"].rolling(window=20).apply(lambda x: stats.skew(x), raw=False)
     )
@@ -151,59 +154,63 @@ def run_strat(interval=default_interval, risk=None):
 
     initial_balance = 10_00_000  # Example initial balance in INR
     balance = initial_balance
-    initial_price = df["close"].iloc[0]
+    initial_price = df["Close"].iloc[0]
     position = 0
     entry_price = 0
 
+    ic(df)
     for i in range(len(df)):
-        close = df["close"].iloc[i]
+        Close = df["Close"].iloc[i]
         zscore = df["zscore"].iloc[i]
         skewness = df["skewness"].iloc[i]
         kurtosis = df["kurtosis"].iloc[i]
-        date = pd.to_datetime(df["endTime"].iloc[i], unit="ms").strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        # date = pd.to_datetime(df["endTime"].iloc[i], unit="ms").strftime(
+        #     "%Y-%m-%d %H:%M:%S"
+        # )
+        date = df["Timestamp"].iloc[i]
         signal = mean_reversion_strategy(
-            close, mean.iloc[i], std.iloc[i], zscore, skewness, kurtosis, date, risk
+            Close, mean.iloc[i], std.iloc[i], zscore, skewness, kurtosis, date, risk
         )
         if signal == "buy":
             if risk is not None:
                 print(f"{position=}")
                 if balance - risk < 0:
                     break
-                position += float(risk / close)
+                position += float(risk / Close)
             elif risk is None:
-                position = float(balance / close)
+                position = float(balance / Close)
 
-            entry_price = close
+            entry_price = Close
             balance = (0) if risk is None else (balance - risk)
             # print("Buy signal")
         elif signal == "sell" and position > 0:
-            balance = position * close
+            balance = position * Close
             position = 0
             # print("Sell signal")
 
     # Calculate final profit/loss
-    final_balance = balance + position * df["close"].iloc[-1]
+    final_balance = balance + position * df["Close"].iloc[-1]
     profit_loss = final_balance - initial_balance
     print(
         f"""
     Total Profit/Loss: {profit_loss} INR.
     Meaning {profit_loss/initial_balance*100:.4f}%
-    alpha={profit_loss / (df["close"].iloc[-1] - initial_price) * 100}%
+    alpha={profit_loss / (df["Close"].iloc[-1] - initial_price) * 100}%
     balance={float(balance)}
     {float(position)=}
         """
     )
 
 
-def delete_file(filename):
+def delete_file(file_path):
     try:
-        os.remove(filename)
+        os.remove(file_path)
     except FileNotFoundError:
-        pass
+        print(f"file {file_path} is already deleted")
 
 
 delete_file("trading_signals.csv")
+delete_file("./btc.csv")
+fetch()
 run_strat("1h", risk=500)
-plotter.plot("./trading_signals.csv")
+# plotter.plot("./trading_signals.csv")
