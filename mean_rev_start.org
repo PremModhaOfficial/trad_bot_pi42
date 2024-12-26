@@ -1,0 +1,26 @@
+:PROPERTIES:
+:ID:       21a9c0db-14d0-42c2-9a83-144ae7c4e1c6
+:END:
+#+title: BackTest Report
+
+
+
+* Assumptions
+- Initial balance 10,00,000.
+- Only Buy
+
+CODE: https://github.com/PremModhaOfficial/trad_bot_pi42.git
+
+* Backtest
+** 2 month offline data signals.
+** Tradview
+*** 5D :ATTACH:
+#+attr_html: :alt  :align left :class img
+[[./pics/5d][5day]]
+
+*** 1M :ATTACH:
+[[./pics/241225_15h16m46s_screenshot][1month]]
+*** 3M :ATTACH:
+*** 6M :ATTACH:
+*** 1Year :ATTACH:
+*** 5Year :ATTACH:

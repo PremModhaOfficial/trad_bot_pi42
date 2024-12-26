@@ -6,13 +6,11 @@
 - initial balance is `10,00,000` INR
 - bot is only allowed to sell
 
-- CODE:: [github](https://github.com/PremModhaOfficial/trad_bot_pi42.git) 
-
-
-## from csv
+# from csv
 2 months offline
 ![2month](./pics/241225_14h55m20s_screenshot.png) 
 
+# Tradeview
 ## 5d
 ![5d-data](./pics/5d.png) 
 
@@ -30,4 +28,6 @@
 
 ## 5Year
 ![5year](./pics/241225_15h20m30s_screenshot.png) 
+
+
 
