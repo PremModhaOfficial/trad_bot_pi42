@@ -5,6 +5,9 @@ Date: December 25, 2024
 ### Executive Summary
 This report analyzes the performance of a mean reversion trading strategy for BTC/INR across multiple timeframes, using an initial capital of 1,000,000 INR. The strategy was tested across 5 days, 1 month, 3 months, 6 months, 1 year, and 5 years periods.
 
+> NOTE 
+> The Bot Generates Both Signals But Only executes Longs.*
+
 
 ### Strategy Overview
 - Type: Mean Reversion
