@@ -1,0 +1,175 @@
+#+TITLE: Mean Reversion Strategy Backtest Report
+#+SUBTITLE: BTC/INR Trading Analysis
+#+DATE: December 25, 2024
+#+AUTHOR: Trading System Analysis Team
+#+OPTIONS: toc:2 num:t
+#+LATEX_CLASS: article
+#+LATEX_CLASS_OPTIONS: [11pt]
+
+* Executive Summary
+This report analyzes the performance of a mean reversion trading strategy for BTC/INR across multiple timeframes, using an initial capital of 1,000,000 INR. The strategy was tested across 5 days, 1 month, 3 months, 6 months, 1 year, and 5 years periods.
+
+#+BEGIN_NOTE
+The Bot Generates Both Signals But Only executes Longs.
+#+END_NOTE
+
+[[https://github.com/PremModhaOfficial/trad_bot_pi42.git][CLICK ME TO SEE SCREENSHOTS AND CODE GITHUB]]
+
+
+* Strategy Overview
+- Type :: Mean Reversion
+- Initial Capital :: 1,000,000 INR
+- Instrument :: BTC/INR
+- Trading Style :: Long-only positions
+- Average Bars in Trades :: 23-31 bars
+
+* Performance Metrics by Timeframe
+** 5-Day Performance
+- Net Profit :: 974.69 USD (0.97%)
+- Total Closed Trades :: 141
+- Percent Profitable :: 67.38%
+- Profit Factor :: 1.029
+- Maximum Drawdown :: 10,408.61 USD (10.15%)
+- Average Trade :: 6.91 USD
+
+** 1-Month Performance
+- Net Profit :: 36,404.27 USD (36.40%)
+- Total Closed Trades :: 343
+- Percent Profitable :: 70.85%
+- Profit Factor :: 1.179
+- Maximum Drawdown :: 38,424.23 USD (30.36%)
+- Average Trade :: 106.13 USD
+
+** 3-Month Performance
+- Net Profit :: 27,059.02 USD (27.06%)
+- Total Closed Trades :: 175
+- Percent Profitable :: 68.57%
+- Profit Factor :: 1.194
+- Maximum Drawdown :: 37,525.38 USD (29.21%)
+- Average Trade :: 154.62 USD
+
+** 6-Month Performance
+- Net Profit :: 68,303.61 USD (68.30%)
+- Total Closed Trades :: 176
+- Percent Profitable :: 71.02%
+- Profit Factor :: 1.318
+- Maximum Drawdown :: 47,980.93 USD (26.71%)
+- Average Trade :: 388.09 USD
+
+** 1-Year Performance
+- Net Profit :: -60,633.10 USD (-60.63%)
+- Total Closed Trades :: 76
+- Percent Profitable :: 60.53%
+- Profit Factor :: 0.775
+- Maximum Drawdown :: 98,750.05 USD (87.36%)
+- Average Trade :: -797.80 USD
+
+** 5-Year Performance
+- Net Profit :: 90,246.74 USD (90.25%)
+- Total Closed Trades :: 67
+- Percent Profitable :: 66.67%
+- Profit Factor :: 1.425
+- Maximum Drawdown :: 162,768.75 USD (70.15%)
+- Average Trade :: 1,347.72 USD
+
+* Risk Analysis
+** Drawdown Analysis
+The strategy shows varying levels of drawdown across timeframes:
+- Shortest timeframe (5D) :: Lowest drawdown at 10.15%
+- Medium timeframes (1M-6M) :: Moderate drawdowns between 26-30%
+- Longer timeframes (1Y-5Y) :: Significant drawdowns up to 87.36%
+
+** Risk-Adjusted Returns
+- Best risk-adjusted performance in 6-month timeframe (Profit Factor: 1.318)
+- Poorest risk-adjusted performance in 1-year timeframe (Profit Factor: 0.775)
+- Most consistent profitability in medium timeframes (1M-6M)
+
+* Strategy Assessment
+** Strengths
+1. High win rate across most timeframes (60-71%)
+2. Strong performance in medium-term trades (1M-6M)
+3. Significant potential for long-term gains (90.25% in 5Y)
+
+** Weaknesses
+1. High maximum drawdown in longer timeframes
+2. Inconsistent performance across different periods
+3. Poor performance in 1-year timeframe
+
+* Recommendations
+1. Consider position sizing adjustments to reduce maximum drawdown
+2. Implement stop-loss mechanisms for better risk management
+3. Focus optimization on medium-term timeframes where strategy shows best consistency
+4. Consider adding filters for volatile market conditions
+
+* Conclusion
+The mean reversion strategy shows promise with strong performance in medium timeframes but requires careful risk management for longer-term trading. The strategy performs best in 3-6 month periods, suggesting optimal use in these timeframes.
+
+* Current Status
+The trading bot is currently:
+- Deployed :: Online on AWS EC2
+- Operational Status :: Signal generation active
+- Execution Status :: Long signals failing due to insufficient capital
+* Technical Implementation
+** Code Architecture
+*** Core Components
+- Authentication System
+  - HMAC-SHA256 signature generation for API security
+  - Environment variable management for credentials
+  - Real-time API interaction with Pi42 exchange
+
+- Data Management
+  - Real-time price fetching at 1-minute intervals
+  - Rolling window of 24 data points for analysis
+  - Pandas DataFrame implementation for efficient data handling
+
+- Trading Logic
+  - Mean reversion based on standard deviation bands
+  - Signal generation using 24-period rolling calculations
+  - Position tracking and risk management system
+
+*** Key Functions
+**** generate_signature
+#+BEGIN_SRC python
+def generate_signature(api_secret, data_to_sign):
+    return hmac.new(
+        api_secret.encode("utf-8"),
+        data_to_sign.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+#+END_SRC
+
+**** calculate_metrics
+#+BEGIN_SRC python
+def calculate_metrics(self, close):
+    rolling_window = 24
+    # ... calculation of mean and standard deviation
+    mean = self.historical_data["close"].rolling(window=rolling_window).mean()
+    std = self.historical_data["close"].rolling(window=rolling_window).std()
+#+END_SRC
+
+**** mean_reversion_strategy
+#+BEGIN_SRC python
+def mean_reversion_strategy(self, close, metrics, date, risk):
+    if close < metrics["mean"] - metrics["std"]:
+        sign = "buy"
+    elif close > metrics["mean"] + metrics["std"]:
+        sign = "sell"  # Note: Not executed in practice
+    else:
+        sign = "buy"
+#+END_SRC
+
+** Data Flow
+1. Real-time data fetching (1-minute intervals)
+2. Statistical calculations using 24-period window
+3. Signal generation based on mean reversion
+4. Trade execution and position management
+5. Comprehensive logging and reporting
+
+** Implementation Notes
+- Although kurtosis and skewness are calculated, they are not used in trading decisions.
+  - was reason difficult for me to test in real time.
+- Focus on mean reversion for increased signal generation
+- Only long positions are executed despite dual-sided signals
+- AWS EC2 deployment for continuous operation
+- Comprehensive logging system for post-trade analysis
+

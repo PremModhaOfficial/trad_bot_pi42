@@ -1,0 +1,110 @@
+#+TITLE: Mean Reversion Strategy Backtest Report
+#+SUBTITLE: BTC/INR Trading Analysis
+#+DATE: December 25, 2024
+#+AUTHOR: Trading System Analysis Team
+#+OPTIONS: toc:2 num:t
+#+LATEX_CLASS: article
+#+LATEX_CLASS_OPTIONS: [11pt]
+
+* Executive Summary
+This report analyzes the performance of a mean reversion trading strategy for BTC/INR across multiple timeframes, using an initial capital of 1,000,000 INR. The strategy was tested across 5 days, 1 month, 3 months, 6 months, 1 year, and 5 years periods.
+
+#+BEGIN_NOTE
+The Bot Generates Both Signals But Only executes Longs.
+#+END_NOTE
+
+[[https://github.com/PremModhaOfficial/trad_bot_pi42.git][CLICK ME TO SEE SCREENSHOTS AND CODE GITHUB]]
+
+* Technical Implementation
+** Code Architecture
+*** Core Components
+- Authentication System
+  - HMAC-SHA256 signature generation for API security
+  - Environment variable management for credentials
+  - Real-time API interaction with Pi42 exchange
+
+- Data Management
+  - Real-time price fetching at 1-minute intervals
+  - Rolling window of 24 data points for analysis
+  - Pandas DataFrame implementation for efficient data handling
+
+- Trading Logic
+  - Mean reversion based on standard deviation bands
+  - Signal generation using 24-period rolling calculations
+  - Position tracking and risk management system
+
+*** Key Functions
+**** generate_signature
+#+BEGIN_SRC python
+def generate_signature(api_secret, data_to_sign):
+    return hmac.new(
+        api_secret.encode("utf-8"),
+        data_to_sign.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+#+END_SRC
+
+**** calculate_metrics
+#+BEGIN_SRC python
+def calculate_metrics(self, close):
+    rolling_window = 24
+    # ... calculation of mean and standard deviation
+    mean = self.historical_data["close"].rolling(window=rolling_window).mean()
+    std = self.historical_data["close"].rolling(window=rolling_window).std()
+#+END_SRC
+
+**** mean_reversion_strategy
+#+BEGIN_SRC python
+def mean_reversion_strategy(self, close, metrics, date, risk):
+    if close < metrics["mean"] - metrics["std"]:
+        sign = "buy"
+    elif close > metrics["mean"] + metrics["std"]:
+        sign = "sell"  # Note: Not executed in practice
+    else:
+        sign = "buy"
+#+END_SRC
+
+** Data Flow
+1. Real-time data fetching (1-minute intervals)
+2. Statistical calculations using 24-period window
+3. Signal generation based on mean reversion
+4. Trade execution and position management
+5. Comprehensive logging and reporting
+
+** Implementation Notes
+- Although kurtosis and skewness are calculated, they are not used in trading decisions
+- Focus on mean reversion for increased signal generation
+- Only long positions are executed despite dual-sided signals
+- AWS EC2 deployment for continuous operation
+- Comprehensive logging system for post-trade analysis
+
+* Strategy Overview
+- Type :: Mean Reversion
+- Initial Capital :: 1,000,000 INR
+- Instrument :: BTC/INR
+- Trading Style :: Long-only positions
+- Average Bars in Trades :: 23-31 bars
+
+
+* Risk Analysis
+** Technical Risk Management
+- Fixed risk per trade: 30 INR
+- Balance verification before trade execution
+- Position size tracking
+- Real-time profit/loss monitoring
+- Comprehensive trade logging
+
+** Drawdown Analysis
+The strategy shows varying levels of drawdown across timeframes:
+- Shortest timeframe (5D) :: Lowest drawdown at 10.15%
+- Medium timeframes (1M-6M) :: Moderate drawdowns between 26-30%
+- Longer timeframes (1Y-5Y) :: Significant drawdowns up to 87.36%
+
+
+* Current Status
+The trading bot is currently:
+- Deployed :: Online on AWS EC2
+- Operational Status :: Signal generation active
+- Execution Status :: Long signals failing due to insufficient capital
+- Monitoring :: Real-time performance tracking and logging
+- Data Storage :: Dual CSV system for signal and trade recording
